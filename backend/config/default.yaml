@@ -1,0 +1,7 @@
+server:
+  addr: ":8080"
+mysql:
+  host: ":3306"
+  username: "root"
+  password: "root123"
+  db_name: "sale"
