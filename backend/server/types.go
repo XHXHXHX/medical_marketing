@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 
+	"github.com/XHXHXHX/medical_marketing/service/user"
+	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -18,7 +20,9 @@ type (
 	HTTPErrorHandleFunc func(sts *status.Status) (_ []byte, statusCode int)
 
 	// GRPCErrorHandleFunc gRPC 层的错误转换, 会将放回的错误信息放置于  status.Status.details 中
-	GRPCErrorHandleFunc func(err error) error
+	GRPCErrorHandleFunc func(err error) proto.Message
+
+	Auth func(ctx context.Context, token string) (*user.User, error)
 )
 
 type ServerRegister interface {

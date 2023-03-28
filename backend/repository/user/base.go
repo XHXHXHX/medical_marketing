@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	TableName = "report"
+	TableName = "user"
 )
 
 

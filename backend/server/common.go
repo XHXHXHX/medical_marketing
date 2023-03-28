@@ -1,6 +1,8 @@
 package server
 
-import "github.com/XHXHXHX/medical_marketing/service/report"
+import (
+	"github.com/XHXHXHX/medical_marketing/service/report"
+)
 
 type Common struct {
 	reportService report.Service

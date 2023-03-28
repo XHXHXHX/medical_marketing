@@ -2,17 +2,26 @@ package config
 
 import (
 	"context"
+	"github.com/XHXHXHX/medical_marketing/service/customer_task"
+	"time"
 
+	customerTaskRepo "github.com/XHXHXHX/medical_marketing/repository/customer_task"
+	customerTaskHistoryRepo "github.com/XHXHXHX/medical_marketing/repository/customer_task_history"
 	reportRepo "github.com/XHXHXHX/medical_marketing/repository/report"
+	userRepo "github.com/XHXHXHX/medical_marketing/repository/user"
 	"github.com/XHXHXHX/medical_marketing/server"
-	reportService "github.com/XHXHXHX/medical_marketing/service/report"
-	reportImpl "github.com/XHXHXHX/medical_marketing/service/report/impl"
+	"github.com/XHXHXHX/medical_marketing/service/report"
+	customerTaskImpl "github.com/XHXHXHX/medical_marketing/service/report/impl"
+	reportImpl "github.com/XHXHXHX/medical_marketing/service/customer_task/impl"
+	"github.com/XHXHXHX/medical_marketing/service/user"
+	userImpl "github.com/XHXHXHX/medical_marketing/service/user/impl"
 	"github.com/XHXHXHX/medical_marketing/util/common"
 	"github.com/XHXHXHX/medical_marketing/util/logx"
 	"github.com/XHXHXHX/medical_marketing/util/logx/core"
 	"github.com/XHXHXHX/medical_marketing/util/logx/provider/zap"
 	"github.com/XHXHXHX/medical_marketing/util/mysql"
 
+	goredis "github.com/go-redis/redis/v8"
 	"go.uber.org/dig"
 	"gorm.io/gorm"
 )
@@ -32,21 +41,33 @@ func NewContainer(cfg *Config) *dig.Container {
 	// 注册
 	mustProvide(NewMysql)
 	mustProvide(NewNewLogger)
+	mustProvide(NewRedisClient)
 
 	mustProvide(NewServer)
-	mustProvide(NewCommonServer)
+	mustProvide(server.NewCommon)
 
-	mustProvide(NewReportRepository)
-	mustProvide(NewReportService)
-	mustProvide(NewReportServer)
+	mustProvide(customerTaskRepo.NewRepo)
+	mustProvide(customerTaskHistoryRepo.NewRepo)
+	mustProvide(customerTaskImpl.NewService)
 
-	mustProvide(server.NewReportServer, dig.Group("server_registers"))
+	mustProvide(userRepo.NewRepo)
+	mustProvide(userImpl.NewService)
+
+	mustProvide(reportRepo.NewRepo)
+	mustProvide(reportImpl.NewService)
 
 	return container
 }
 
-func NewServer(cfg *Config) *server.Server {
-	return server.NewServer(cfg.Server.Addr)
+func NewServer(p struct {
+	dig.In
+
+	Cfg *Config
+	Report report.Service
+	User user.Service
+	CustomerTask customer_task.Service
+}) *server.Server {
+	return server.NewServer(p.Cfg.Server.Addr, p.Report, p.User, p.CustomerTask)
 }
 
 func NewMysql(cfg *Config) (*gorm.DB, error) {
@@ -75,18 +96,20 @@ func NewNewLogger() (*core.Logger, error) {
 	return logx.GetDefault(), nil
 }
 
-func NewCommonServer(report reportService.Service) *server.Common {
-	return server.NewCommon(report)
-}
-
-func NewReportRepository(client *gorm.DB) reportRepo.Repository {
-	return reportRepo.NewRepo(client)
-}
-
-func NewReportService(repo reportRepo.Repository) reportService.Service {
-	return reportImpl.NewService(repo)
-}
-
-func NewReportServer(c *server.Common) *server.ReportServer {
-	return server.NewReportServer(c)
+func NewRedisClient(cfg *Config) (*goredis.Client, error) {
+	c := cfg.Redis
+	logx.Infof(context.Background(), "Redis config host:[%s], pass(len):%d",
+		c.Host, len(c.Passwd))
+	client := goredis.NewClient(&goredis.Options{
+		Addr:     c.Host,
+		Password: c.Passwd,
+		DB:       c.DB,
+	})
+	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+	defer cancel()
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

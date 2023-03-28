@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/XHXHXHX/medical_marketing/service/customer_task"
+	"github.com/XHXHXHX/medical_marketing/service/report"
+	"github.com/XHXHXHX/medical_marketing/service/user"
+	commonpb "github.com/XHXHXHX/medical_marketing_proto/gen/go/proto/common"
+	"github.com/XHXHXHX/medical_marketing_proto/gen/go/proto/v1api"
+	"github.com/golang/protobuf/proto"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -27,22 +33,20 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
 
 type Server struct {
+	v1api.UnimplementedApiReportServiceServer
+	v1api.UnimplementedApiUserServiceServer
+	v1api.UnimplementedApiCustomerServerServiceServer
+	v1api.UnimplementedApiStatisticsServiceServer
+
 	addr string
 
 	DailTimeout     time.Duration // 空则默认 5s
 	ShutdownTimeout time.Duration // 空则默认 20s
 
-	ServerRegisters []ServerRegister
-
-	// 加载自定义的 http handler, 例如
-	// func(mux *http.ServeMux) {
-	//    mux.Handle("/abc/", myhandler)
-	// }
 	CustromHTTPHandlerSetFunc func(mux *http.ServeMux)
 
 	// 可选, 增加自定义的 UnaryServerInterceptor
@@ -53,14 +57,21 @@ type Server struct {
 
 	// 允许透进来的 HTTP headers
 	IncomingHeaderWhiteList []string
-
 	DisableHeathz  bool
 	DisableMetrics bool
+
+	reportService report.Service
+	userService user.Service
+	customerTask customer_task.Service
 }
 
-func NewServer(addr string) *Server {
+func NewServer(addr string, report report.Service, userService user.Service, customerTask customer_task.Service) *Server {
 	return &Server{
 		addr: addr,
+		reportService: report,
+		userService: userService,
+		customerTask: customerTask,
+		IncomingHeaderWhiteList: []string{"token"},
 	}
 }
 
@@ -91,8 +102,13 @@ func (s *Server) Run(ctx context.Context) error {
 	optoins = append(optoins, runtime.WithIncomingHeaderMatcher(s.incomingHeaderMatcher()))
 
 	gw := runtime.NewServeMux(optoins...)
-	for _, reg := range s.ServerRegisters {
-		if err := reg.RegisterGateway(ctx, gw, conn); err != nil {
+
+	handlers := s.RegisterGateways()
+	if len(handlers) == 0 {
+		return errors.New("gateway handlers is empty, make sure implement ServerRegister")
+	}
+	for _, fn := range handlers {
+		if err := fn(ctx, gw, conn); err != nil {
 			return err
 		}
 	}
@@ -112,6 +128,8 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
+	mux.HandleFunc("/api/report/import", s.ImportConsumer())
+
 	mux.Handle("/", gw)
 
 	var grpcOpts []grpc.ServerOption
@@ -121,18 +139,15 @@ func (s *Server) Run(ctx context.Context) error {
 			// trace id 拦截器
 			InterceptorTraceID(),
 			InterceptorLogRequest(),                           // 日志记录
-			//InterceptorGRPCErrorHandle(gRPCErrorHandleFunc), // 错误处理
-			//InterceptorAuth(s.lg, s.webAuth, s.secrets.GetSecret), // API鉴权
+			InterceptorGRPCErrorHandle(gRPCErrorHandleFunc), // 错误处理
+			InterceptorAuth(s.userService.Auth), // API鉴权
 		},
 			s.UnaryServerInterceptors...,
 		)...,
 	)))
 
 	grpcServer := grpcUtil.NewGRPCServer(grpcOpts...)
-	for _, reg := range s.ServerRegisters {
-		reg.RegisterGRPC(grpcServer)
-	}
-	reflection.Register(grpcServer)
+	s.RegisterGRPCs(grpcServer)
 
 	h := exposeHeaders(traceId(mux))
 	svr := &http.Server{
@@ -158,6 +173,22 @@ func (s *Server) Run(ctx context.Context) error {
 		return errors.Wrap(svr.Shutdown(cctx), "HTTP & gRPC server shutdown err")
 	case err := <-stop:
 		return err
+	}
+}
+
+func (s *Server) RegisterGRPCs(svr grpc.ServiceRegistrar) {
+	v1api.RegisterApiReportServiceServer(svr, s)
+	v1api.RegisterApiUserServiceServer(svr, s)
+	v1api.RegisterApiCustomerServerServiceServer(svr, s)
+	v1api.RegisterApiStatisticsServiceServer(svr, s)
+}
+
+func (s *Server) RegisterGateways() []GatewayHandler {
+	return []GatewayHandler{
+		v1api.RegisterApiReportServiceHandler,
+		v1api.RegisterApiUserServiceHandler,
+		v1api.RegisterApiCustomerServerServiceHandler,
+		v1api.RegisterApiStatisticsServiceHandler,
 	}
 }
 
@@ -199,12 +230,13 @@ func dail(network, addr string) (*grpc.ClientConn, error) {
 	return grpc.Dial(addr, opts...)
 }
 
-func gRPCErrorHandleFunc(err error) error {
+func gRPCErrorHandleFunc(err error) proto.Message {
 	er, ok := errs.As(err)
 	if !ok {
 		er = errs.NewSimpleError("system.SystemException", "系统错误: "+err.Error())
 	}
-	return er
+
+	return (*commonpb.Error)(er)
 }
 
 func printPanic(p interface{}) (err error) {
@@ -337,9 +369,7 @@ func healthzServer(conn *grpc.ClientConn) http.HandlerFunc {
 }
 
 func (s *Server) allowCORS(h http.Handler) http.Handler {
-	allowHeaders := strings.Join(append([]string{"Content-Type", "Accept", "Authorization"}, s.IncomingHeaderWhiteList...), ",")
-	//allowHeaders := strings.Join([]string{"Content-Type", "Accept", "Authorization", "token", "groupid",
-	//	"app", "pf_token", "x-requested-with", trace.IotTraceHeader}, ",")
+	allowHeaders := strings.Join([]string{"Content-Type", "Accept", "Authorization", "token"}, ",")
 	allowMethods := strings.Join([]string{"GET", "HEAD", "POST", "PUT", "DELETE"}, ",")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {

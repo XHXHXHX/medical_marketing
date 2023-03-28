@@ -10,4 +10,9 @@ type Config struct {
 		Password string `yaml:"password"`
 		DBName string `yaml:"db_name"`
 	} `yaml:"mysql"`
+	Redis struct {
+		Host   string `yaml:"host"`
+		Passwd string `yaml:"password"`
+		DB     int    `yaml:"db"`
+	} `yaml:"redis"`
 }

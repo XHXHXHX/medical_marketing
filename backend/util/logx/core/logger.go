@@ -72,6 +72,7 @@ func (l *Logger) log(ctx context.Context, level Level, msg string, args map[stri
 			}
 		}
 	}
+
 	if lineNum == "" {
 		skip := skipOffset
 		if temp := ctx.Value(SkipOffsetKey); temp != nil {
@@ -118,6 +119,7 @@ func (l *Logger) log(ctx context.Context, level Level, msg string, args map[stri
 		msg:       msg,
 		args:      result,
 	}
+
 	sendProvider(data)
 }
 

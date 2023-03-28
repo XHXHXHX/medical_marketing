@@ -55,7 +55,6 @@ func main() {
 		panic(err)
 	}
 
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 

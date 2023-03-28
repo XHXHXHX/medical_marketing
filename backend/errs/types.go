@@ -1,15 +1,16 @@
 package errs
 
 import (
+	commonpb "github.com/XHXHXHX/medical_marketing_proto/gen/go/proto/common"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/status"
 )
 
-type Err *Error
+type Error commonpb.Error
 
 // NewError 生成一个完整的 Error
-func NewError(code string, msg string) *Error {
-	return &Error{Code: code, Message: msg}
+func NewError(code string, msg string, detail string) *Error {
+	return &Error{Code: code, Message: msg, Details: detail}
 }
 
 // NewSimpleError 生成 Error 时忽略 Details 字段
@@ -23,10 +24,8 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
-func (e *Error) ProtoMessage() {}
-
-func (e *Error) AsRaw() *Error {
-	return (*Error)(e)
+func (e *Error) AsRaw() *commonpb.Error {
+	return (*commonpb.Error)(e)
 }
 
 // Is 由 errors.Is(src, target) 调用，实现 Error 相等判断
@@ -72,7 +71,7 @@ func As(srcErr error) (*Error, bool) {
 	}
 	var err *Error
 	if errors.As(srcErr, &err) {
-		return NewError(err.Code, srcErr.Error()), true
+		return NewError(err.Code, srcErr.Error(), err.Details), true
 	}
 	return nil, false
 }

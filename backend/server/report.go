@@ -2,33 +2,131 @@ package server
 
 import (
 	"context"
-
+	"github.com/XHXHXHX/medical_marketing/errs"
+	"github.com/XHXHXHX/medical_marketing/service/customer_task"
+	"github.com/XHXHXHX/medical_marketing/service/report"
+	"github.com/XHXHXHX/medical_marketing/service/user"
+	"github.com/XHXHXHX/medical_marketing/util/common"
+	commonpb "github.com/XHXHXHX/medical_marketing_proto/gen/go/proto/common"
 	"github.com/XHXHXHX/medical_marketing_proto/gen/go/proto/v1api"
-
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"google.golang.org/grpc"
+	"time"
 )
 
-type ReportServer struct {
-	c *Common
-	v1api.ApiReportServiceServer
-}
-
-func NewReportServer(c *Common) *ReportServer {
-	return &ReportServer{
-		c: c,
+func (s *Server) ReportCreate(ctx context.Context, req *v1api.ReportCreateRequest) (*commonpb.Empty, error) {
+	if req.GetConsumerMobile() == "" {
+		return nil, errs.InvalidParams.Wrap("consumer_mobile")
 	}
+	if req.GetConsumerName() == "" {
+		return nil, errs.InvalidParams.Wrap("consumer_name")
+	}
+	if req.GetExpectArriveTime() == 0 {
+		return nil, errs.InvalidParams.Wrap("expire_arrive_time")
+	}
+
+	if common.PTimeUnix(req.GetExpectArriveTime()).Before(time.Now()) {
+		return nil, errs.ExpectBeforeNow
+	}
+
+	err := s.reportService.Add(ctx, &report.Report{
+		ReportUserID:     common.GetUserID(ctx),
+		ConsumerMobile:   req.GetConsumerMobile(),
+		ConsumerName:     req.GetConsumerName(),
+		ExpectArriveTime: common.PTimeUnix(req.GetExpectArriveTime()),
+		CreateTime:       common.PNow(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Empty{}, nil
 }
 
-func (s *ReportServer) RegisterGRPC(svr grpc.ServiceRegistrar) {
-	v1api.RegisterApiReportServiceServer(svr, s)
+func (s *Server) ReportRecover(ctx context.Context, req *v1api.ReportRecoverRequest) (*commonpb.Empty, error) {
+	if req.GetId() == 0 {
+		return nil, errs.InvalidParams.Wrap("id")
+	}
+	info, err := s.reportService.GetOne(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	if info.IsMatch.IsMatch() {
+		return nil, errs.BanRecover
+	}
+
+	_, total, err := s.customerTask.List(ctx, &customer_task.SelectListRequest{
+		ReportIDs:           []int64{info.ReportUserID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if total > 0 {
+		return nil, errs.BanRecover
+	}
+
+	return &commonpb.Empty{}, s.reportService.Del(ctx, req.GetId())
 }
 
-func (s *ReportServer) RegisterGateway(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return v1api.RegisterApiReportServiceHandler(ctx, mux, conn)
-}
+func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (*v1api.ReportListResponse, error) {
+	page, err := common.GetPageInfo(req.GetPage())
+	if err != nil {
+		return nil, errs.InvalidParams.Wrap("page")
+	}
 
-func (s *ReportServer) ReportCreate(ctx context.Context, req *v1api.ReportCreateRequest) (*v1api.ReportCreateResponse, error) {
+	params := &report.SelectListRequest{
+		UserId:    req.GetUserId(),
+		BeginTime: common.PTimeUnix(req.GetCreateStartTime()),
+		EndTime:   common.PTimeUnix(req.GetCreatEndTime()),
+		IsMatch: report.IsMatch(req.IsMatch),
+		Page:      page,
+	}
 
-	return &v1api.ReportCreateResponse{}, nil
+	if req.GetUserName() != "" {
+		userList, _, err := s.userService.GetList(ctx, &user.SelectListRequest{
+			Name:    req.GetUserName(),
+			Status:  user.StatusNormal,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range userList {
+			params.UserIds = append(params.UserIds, v.ID)
+		}
+	}
+
+	list, total, err := s.reportService.List(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	userIDs := make([]int64, 0, len(list))
+	// TODO 去重
+	for _, v := range list {
+		userIDs = append(userIDs, v.ReportUserID)
+	}
+	nameMap, err := s.userService.GetNameMap(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &v1api.ReportListResponse{
+		List: make([]*commonpb.Report, 0, len(list)),
+		Page: page.Page2Pagination(total),
+	}
+
+	for _, v := range list {
+		res.List = append(res.List, &commonpb.Report{
+			Id:               v.ID,
+			UserId:           v.ReportUserID,
+			UserName:         nameMap[v.ReportUserID],
+			ExceptArriveTime: common.TimeToUnix(v.ExpectArriveTime),
+			ConsumerMobile:   v.ConsumerMobile,
+			ConsumerName:     v.ConsumerName,
+			ConsumerAmount: v.ConsumerAmount,
+			IsMatch:        v.IsMatch == 1,
+			CreateTime: common.TimeToUnix(v.CreateTime),
+			ActualArriveTime:       common.TimeToUnix(v.ActualArrivedTime),
+		})
+	}
+
+	return res, nil
 }

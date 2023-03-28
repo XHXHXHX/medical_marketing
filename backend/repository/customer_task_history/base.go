@@ -1,4 +1,4 @@
-package report
+package customer_task_history
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	TableName = "report"
+	TableName = "customer_task_history"
 )
 
 

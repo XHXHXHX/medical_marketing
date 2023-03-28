@@ -13,3 +13,7 @@ func GetClient(ctx context.Context) *gorm.DB {
 	}
 	return nil
 }
+
+func SetClient(ctx context.Context, tx *gorm.DB) context.Context {
+	return context.WithValue(ctx, transaction{}, tx)
+}
