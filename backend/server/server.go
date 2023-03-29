@@ -232,6 +232,7 @@ func dail(network, addr string) (*grpc.ClientConn, error) {
 
 func gRPCErrorHandleFunc(err error) proto.Message {
 	er, ok := errs.As(err)
+
 	if !ok {
 		er = errs.NewSimpleError("system.SystemException", "系统错误: "+err.Error())
 	}
@@ -261,7 +262,7 @@ func DefaultHTTPErrorHandleFunc(sts *status.Status) (_ []byte, statusCode int) {
 		Message: sts.Err().Error(),
 	}
 	if details := sts.Details(); len(details) > 0 {
-		if err, ok := details[0].(*errs.Error); ok {
+		if err, ok := details[0].(*commonpb.Error); ok {
 			er.Code = err.Code
 			er.Message = err.Message
 		}
