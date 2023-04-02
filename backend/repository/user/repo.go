@@ -85,14 +85,14 @@ func (repo *repo) SelectList(ctx context.Context, req *userService.SelectListReq
 		tx = tx.Where("status = ?", req.Status)
 	}
 
-	if req.Page != nil {
-		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
-	}
-
 	var total int64
 	err := tx.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if req.Page != nil {
+		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
 	}
 
 	var list []*userService.User

@@ -85,14 +85,15 @@ func (repo *repo) SelectList(ctx context.Context, req *customer_task.SelectListR
 	if req.IsFinished.IsValid() {
 		tx = tx.Where("is_finished = ?", req.IsFinished)
 	}
-	if req.Page != nil {
-		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
-	}
 
 	var total int64
 	err := tx.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if req.Page != nil {
+		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
 	}
 
 	var list []*customer_task.CustomerTask

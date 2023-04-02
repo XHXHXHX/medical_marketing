@@ -80,6 +80,12 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 		Page:      page,
 	}
 
+	role := user.Role(common.GetRole(ctx))
+	// 市场部的员工只能看自己的
+	if role.IsMarketStaff() {
+		params.UserId = common.GetUserID(ctx)
+	}
+
 	if req.GetUserName() != "" {
 		userList, _, err := s.userService.GetList(ctx, &user.SelectListRequest{
 			Name:    req.GetUserName(),
@@ -99,14 +105,35 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 	}
 
 	userIDs := make([]int64, 0, len(list))
+	reportIDs := make([]int64, 0, len(list))
 	// TODO 去重
 	for _, v := range list {
 		userIDs = append(userIDs, v.ReportUserID)
+		reportIDs = append(reportIDs, v.ID)
 	}
+
+	var taskMap map[int64]*customer_task.CustomerTask
+
+	if req.GetRelationTask() {
+		taskList, _, err := s.customerTask.List(ctx, &customer_task.SelectListRequest{
+			ReportIDs:           reportIDs,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		taskMap = make(map[int64]*customer_task.CustomerTask)
+		for _, v := range taskList {
+			taskMap[v.ReportID] = v
+			userIDs = append(userIDs, v.UserID)
+		}
+	}
+
 	nameMap, err := s.userService.GetNameMap(ctx, userIDs)
 	if err != nil {
 		return nil, err
 	}
+
 
 	res := &v1api.ReportListResponse{
 		List: make([]*commonpb.Report, 0, len(list)),
@@ -114,7 +141,7 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 	}
 
 	for _, v := range list {
-		res.List = append(res.List, &commonpb.Report{
+		tmp := &commonpb.Report{
 			Id:               v.ID,
 			UserId:           v.ReportUserID,
 			UserName:         nameMap[v.ReportUserID],
@@ -122,10 +149,16 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 			ConsumerMobile:   v.ConsumerMobile,
 			ConsumerName:     v.ConsumerName,
 			ConsumerAmount: v.ConsumerAmount,
-			IsMatch:        v.IsMatch == 1,
+			IsMatch:        int64(v.IsMatch),
 			CreateTime: common.TimeToUnix(v.CreateTime),
 			ActualArriveTime:       common.TimeToUnix(v.ActualArrivedTime),
-		})
+		}
+		if taskMap != nil && taskMap[v.ID] != nil {
+			tmp.RelationTask = true
+			tmp.RelationTaskUserId = taskMap[v.ID].UserID
+			tmp.RelationTaskUsername = nameMap[taskMap[v.ID].UserID]
+		}
+		res.List = append(res.List, tmp)
 	}
 
 	return res, nil

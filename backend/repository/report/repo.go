@@ -80,14 +80,15 @@ func (repo *repo) SelectList(ctx context.Context, req *reportService.SelectListR
 	if len(req.ConsumerMobiles) > 0 {
 		tx = tx.Where("consumer_mobile in ?", req.ConsumerMobiles)
 	}
-	if req.Page != nil {
-		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
-	}
 
 	var total int64
 	err := tx.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if req.Page != nil {
+		tx = tx.Offset(int(req.Page.PageSize*(req.Page.CurrentPage-1))).Limit(int(req.Page.PageSize))
 	}
 
 	var list []*reportService.Report

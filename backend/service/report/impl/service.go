@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"errors"
 	"github.com/XHXHXHX/medical_marketing/errs"
 	reportRepo "github.com/XHXHXHX/medical_marketing/repository/report"
 	"github.com/XHXHXHX/medical_marketing/service/report"
@@ -50,7 +51,7 @@ func (s *service) SelectByConsumerMobile(ctx context.Context, mobile string) (*r
 
 func (s *service) Add(ctx context.Context, info *report.Report) error {
 	exist, err := s.repo.SelectByMobile(ctx, info.ConsumerMobile)
-	if err != nil {
+	if err != nil && errors.Is(err, errs.NotFoundData) == false {
 		return err
 	}
 
