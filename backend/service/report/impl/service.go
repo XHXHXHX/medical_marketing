@@ -93,24 +93,26 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 
 	reportMap := make(map[string]*report.Report, len(reportList))
 	for _, v := range reportList {
-		reportMap[v.ConsumerMobile] = v
+		reportMap[v.ConsumerName] = v
 	}
 
 	result := make([]*report.ImportErrorResult, 0)
 
 	for i, v := range data {
+		consumerMobile := v["mobile"]
 		consumerName := v["name"]
 		arriveTime := excel.ExcelDate(v["arrive_time"], "2006-01-02 15:04")
 		consumeAmountF, err := strconv.ParseFloat(v["consume_amount"], 10)
 		if err != nil {
 			result = append(result, &report.ImportErrorResult{
 				No: i+1,
-				Error: "时间格式错误，eg: 2006-01-02 15:04:05",
+				Error: "金额错误",
 			})
 			continue
 		}
+		consumeAmount := int64(consumeAmountF * 100)
 
-		r, ok := reportMap[v["mobile"]]
+		r, ok := reportMap[consumerName]
 
 		if !ok {
 			result = append(result, &report.ImportErrorResult{
@@ -120,7 +122,7 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 			continue
 		}
 
-		if r.IsMatch.IsMatch() {
+		if r.ConsumerMobile == consumerName && r.ConsumerAmount == consumeAmount &&  r.IsMatch.IsMatch() {
 			result = append(result, &report.ImportErrorResult{
 				No: i+1,
 				Error: "已匹配",
@@ -130,8 +132,8 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 
 		r.ActualArrivedTime = arriveTime
 		r.IsMatch = 1
-		r.ConsumerAmount = int64(consumeAmountF * 100)
-		r.ConsumerName = consumerName
+		r.ConsumerAmount = consumeAmount
+		r.ConsumerMobile = consumerMobile
 
 		err = s.repo.Update(ctx, r)
 		if err != nil {
