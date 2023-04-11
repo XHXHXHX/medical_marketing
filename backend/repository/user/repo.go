@@ -96,7 +96,7 @@ func (repo *repo) SelectList(ctx context.Context, req *userService.SelectListReq
 	}
 
 	var list []*userService.User
-	err = tx.Order("id desc").Scan(&list).Error
+	err = tx.Order("status asc, id desc").Scan(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}
