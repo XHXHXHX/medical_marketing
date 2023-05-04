@@ -3,7 +3,7 @@ module github.com/XHXHXHX/medical_marketing
 go 1.19
 
 require (
-	github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230401125638-1af01a3be679
+	github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504110734-2658aa77f120
 	github.com/gin-gonic/gin v1.8.2
 )
 
@@ -34,6 +34,7 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/robfig/cron v1.2.0 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/ugorji/go/codec v1.2.8 // indirect

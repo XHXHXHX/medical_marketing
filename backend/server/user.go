@@ -132,7 +132,6 @@ func (s *Server) UserList(ctx context.Context, req *v1api.UserListRequest) (*v1a
 		Name:    req.GetName(),
 		Role:    user.Role(req.GetRole()),
 		Roles:   nil,
-		Status:  user.StatusNormal,
 		Page:    page,
 	})
 	if err != nil {

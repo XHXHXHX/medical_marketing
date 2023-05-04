@@ -6,8 +6,11 @@ import (
 	"github.com/XHXHXHX/medical_marketing/errs"
 	reportRepo "github.com/XHXHXHX/medical_marketing/repository/report"
 	"github.com/XHXHXHX/medical_marketing/service/report"
+	"github.com/XHXHXHX/medical_marketing/util/common"
 	"github.com/XHXHXHX/medical_marketing/util/excel"
+	"github.com/XHXHXHX/medical_marketing/util/logx"
 	"strconv"
+	"time"
 )
 
 type service struct {
@@ -79,13 +82,13 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 		return nil, err
 	}
 
-	mobiles := make([]string, 0, len(data))
+	names := make([]string, 0, len(data))
 	for _, v := range data {
-		mobiles = append(mobiles, v["mobile"])
+		names = append(names, v["name"])
 	}
 
 	reportList, _, err := s.repo.SelectList(ctx, &report.SelectListRequest{
-		ConsumerMobiles: mobiles,
+		CustomerNames: names,
 	})
 	if err != nil {
 		return nil, err
@@ -117,7 +120,7 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 		if !ok {
 			result = append(result, &report.ImportErrorResult{
 				No: i+1,
-				Error: "未匹配",
+				Error: "姓名未匹配",
 			})
 			continue
 		}
@@ -146,4 +149,67 @@ func (s *service) Import(ctx context.Context, buffer []byte) ([]*report.ImportEr
 	}
 
 	return result, nil
+}
+
+func (s *service) Update(ctx context.Context, info *report.Report) error {
+	return s.repo.Update(ctx, info)
+}
+
+/*
+ 报单7日后未自动匹配的数据，归属于客服
+ 到访三个月后的数据，归属于客服
+ */
+func (s *service) AutoChangeBelong(ctx context.Context) {
+
+	// 1. 报单7日后未自动匹配的数据，归属于客服
+	s.unMatchDataDistributeCustomer(ctx)
+	// 2. 到访三个月后的数据，归属于客服
+	s.matchedDataDistributeCustomer(ctx)
+}
+
+// 1. 报单7日后未自动匹配的数据，归属于客服
+func (s *service) unMatchDataDistributeCustomer(ctx context.Context) {
+	req := &report.SelectListRequest{
+		IsMatch: report.UnMatch,
+		Belong: report.BelongMarket,
+		CreateEndTime: common.PTime(time.Now().Add(report.UnMatchDataDistributeCustomerDate)),
+	}
+
+	list, _, err := s.repo.SelectList(ctx, req)
+	if err != nil {
+		logx.Errorf(ctx, "unMatchDataDistributeCustomer select error", err)
+	}
+
+	err = s.changeBelongToCustomer(ctx, list)
+	if err != nil {
+		logx.Errorf(ctx, "unMatchDataDistributeCustomer changeBelongToCustomer error", err)
+	}
+}
+
+// 2. 到访三个月后的数据，归属于客服
+func (s *service) matchedDataDistributeCustomer(ctx context.Context) {
+	req := &report.SelectListRequest{
+		IsMatch: report.Match,
+		Belong: report.BelongMarket,
+		CreateEndTime: common.PTime(time.Now().Add(report.MatchedDataDistributeCustomerDate)),
+	}
+
+	list, _, err := s.repo.SelectList(ctx, req)
+	if err != nil {
+		logx.Errorf(ctx, "matchedDataDistributeCustomer select error", err)
+	}
+
+	err = s.changeBelongToCustomer(ctx, list)
+	if err != nil {
+		logx.Errorf(ctx, "matchedDataDistributeCustomer changeBelongToCustomer error", err)
+	}
+}
+
+func (s *service) changeBelongToCustomer(ctx context.Context, list []*report.Report) error {
+	ids := make([]int64, 0, len(list))
+	for _, v := range list {
+		ids = append(ids, v.ID)
+	}
+
+	return s.repo.UpdateBelong(ctx, ids, report.BelongCustomer)
 }

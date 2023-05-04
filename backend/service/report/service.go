@@ -13,4 +13,6 @@ type Service interface {
 	GetOne(ctx context.Context, id int64) (*Report, error)
 	GetMore(ctx context.Context, ids []int64) ([]*Report, error)
 	GetMap(ctx context.Context, ids []int64) (map[int64]*Report, error)
+	AutoChangeBelong(ctx context.Context)
+	Update(ctx context.Context, info *Report) error
 }

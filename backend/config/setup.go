@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"github.com/XHXHXHX/medical_marketing/crontab"
 	"github.com/XHXHXHX/medical_marketing/service/customer_task"
 	"time"
 
@@ -42,6 +43,7 @@ func NewContainer(cfg *Config) *dig.Container {
 	mustProvide(NewMysql)
 	mustProvide(NewNewLogger)
 	mustProvide(NewRedisClient)
+	mustProvide(crontab.NewCrontab)
 
 	mustProvide(NewServer)
 	mustProvide(server.NewCommon)

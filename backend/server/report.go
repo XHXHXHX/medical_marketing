@@ -74,16 +74,28 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 
 	params := &report.SelectListRequest{
 		UserId:    req.GetUserId(),
-		BeginTime: common.PTimeUnix(req.GetCreateStartTime()),
-		EndTime:   common.PTimeUnix(req.GetCreatEndTime()),
+		CreateBeginTime: common.PTimeUnix(req.GetCreateStartTime()),
+		CreateEndTime:   common.PTimeUnix(req.GetCreatEndTime()),
+		ArriveStartTime: common.PTimeUnix(req.GetArriveStartTime()),
+		ArriveEndTime: common.PTimeUnix(req.GetArriveEndTime()),
 		IsMatch: report.IsMatch(req.IsMatch),
+		Tag: req.GetTag(),
 		Page:      page,
 	}
 
 	role := user.Role(common.GetRole(ctx))
 	// 市场部的员工只能看自己的
-	if role.IsMarketStaff() {
+	if role.IsMarketStaff() || role.IsCustomStaff() {
 		params.UserId = common.GetUserID(ctx)
+	}
+	if role.IsCustomManager() {
+		params.ShowCustomer = true
+	}
+	if role.IsMarket() {
+		params.Belong = report.BelongMarket
+	}
+	if role.IsCustom() {
+		params.Belong = report.BelongCustomer
 	}
 
 	if req.GetUserName() != "" {
@@ -142,16 +154,18 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 
 	for _, v := range list {
 		tmp := &commonpb.Report{
-			Id:               v.ID,
-			UserId:           v.ReportUserID,
-			UserName:         nameMap[v.ReportUserID],
-			ExceptArriveTime: common.TimeToUnix(v.ExpectArriveTime),
-			ConsumerMobile:   v.ConsumerMobile,
-			ConsumerName:     v.ConsumerName,
-			ConsumerAmount: v.ConsumerAmount,
-			IsMatch:        int64(v.IsMatch),
-			CreateTime: common.TimeToUnix(v.CreateTime),
-			ActualArriveTime:       common.TimeToUnix(v.ActualArrivedTime),
+			Id:                   v.ID,
+			UserId:               v.ReportUserID,
+			UserName:             nameMap[v.ReportUserID],
+			ExceptArriveTime:     common.TimeToUnix(v.ExpectArriveTime),
+			ConsumerMobile:       v.ConsumerMobile,
+			ConsumerName:         v.ConsumerName,
+			IsMatch:              int64(v.IsMatch),
+			ActualArriveTime:     common.TimeToUnix(v.ActualArrivedTime),
+			ConsumerAmount:       v.ConsumerAmount,
+			CreateTime:           common.TimeToUnix(v.CreateTime),
+			Tag:                  v.Tag,
+			Memo:                 v.Memo,
 		}
 		if taskMap != nil && taskMap[v.ID] != nil {
 			tmp.RelationTask = true
@@ -162,4 +176,28 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 	}
 
 	return res, nil
+}
+
+func (s *Server) ReportChangeMatch(ctx context.Context, req *v1api.ReportChangeMatchRequest) (*commonpb.Empty, error) {
+	if req.GetId() == 0 {
+		return nil, errs.InvalidParams.Wrap("id")
+	}
+
+	match := report.IsMatch(req.GetIsMatch())
+	if match.Valid() == false {
+		return nil, errs.InvalidParams.Wrap("match")
+	}
+
+	info, err := s.reportService.GetOne(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	if info.IsMatch == match {
+		return &commonpb.Empty{}, nil
+	}
+
+	info.IsMatch = match
+
+	return &commonpb.Empty{}, s.reportService.Update(ctx, info)
 }

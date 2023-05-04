@@ -6,6 +6,12 @@ import (
 )
 
 const (
+	OneDay = 24 * time.Hour
+	UnMatchDataDistributeCustomerDate = 7 * OneDay // 报单7日后未自动匹配的数据，归属于客服
+	MatchedDataDistributeCustomerDate = 3 * 30 * OneDay // 到访三个月后的数据，归属于客服
+)
+
+const (
 	Match IsMatch = 1
 	UnMatch IsMatch = 2
 )
@@ -20,15 +26,40 @@ func (m IsMatch) IsMatch() bool {
 	return m == Match
 }
 
+// 归属
+type Belong int64
+
+const (
+	BelongAll = 0
+	BelongMarket = 1
+	BelongCustomer = 2
+)
+
+func (b Belong) IsAll() bool {
+	return b == BelongAll
+}
+
+func (b Belong) IsMarket() bool {
+	return b == BelongMarket
+}
+
+func (b Belong) IsCustomer() bool {
+	return b == BelongCustomer
+}
+
 type SelectListRequest struct {
-	UserName string
+	CustomerNames []string
 	UserId int64
 	UserIds []int64
 	IsMatch IsMatch
 	ConsumerMobiles []string
-
-	BeginTime *time.Time
-	EndTime *time.Time
+	ShowCustomer bool
+	Belong Belong
+	CreateBeginTime *time.Time
+	CreateEndTime *time.Time
+	ArriveStartTime *time.Time
+	ArriveEndTime *time.Time
+	Tag string
 	Page *common.Page
 }
 
@@ -45,6 +76,9 @@ type Report struct {
 	CreateTime *time.Time `bson:"create_time"`
 	IsDeleted int32 `bson:"is_deleted"` // 是否删除 1是 0 否
 	DeleteTime *time.Time `bson:"delete_time"`
+	Belong Belong `bson:"belong"` // 归属
+	Tag string `bson:"tag"`
+	Memo string `bson:"memo"`
 }
 
 type ImportErrorResult struct {
