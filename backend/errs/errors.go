@@ -5,7 +5,7 @@ var (
 	NotFoundData = NewSimpleError("common.NotFoundData", "无法找到相应数据")
 
 	ExistSameConsumerMobile = NewSimpleError("report.existsSameMobile", "存在相同客户手机号")
-	BanRecover = NewSimpleError("report.BanRecover", "已匹配报单不能撤回")
+	BanRecover = NewSimpleError("report.BanRecover", "回访的报单不能撤回")
 	ExpectBeforeNow = NewSimpleError("report.ExpectBeforeNow", "预期到访时间不能早于当前时间")
 
 	NotBelongWithYou = NewSimpleError("report.NotBelongWithYou", "当前客服不属于你")

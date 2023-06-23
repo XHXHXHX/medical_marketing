@@ -35,6 +35,7 @@ const (
 	RoleMarketStaff Role = 2 //  市场部员工
 	RoleCustomManager Role = 3 // 客服部经理
 	RoleCustomStaff Role = 4 // 客服部员工
+	RoleFinance Role = 5 // 财务
 )
 
 type Role int64

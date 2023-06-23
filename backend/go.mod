@@ -3,7 +3,7 @@ module github.com/XHXHXHX/medical_marketing
 go 1.19
 
 require (
-	github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504110734-2658aa77f120
+	github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230610052255-d0e58895415f
 	github.com/gin-gonic/gin v1.8.2
 )
 

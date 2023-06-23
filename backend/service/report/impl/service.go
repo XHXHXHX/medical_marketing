@@ -53,7 +53,7 @@ func (s *service) SelectByConsumerMobile(ctx context.Context, mobile string) (*r
 }
 
 func (s *service) Add(ctx context.Context, info *report.Report) error {
-	exist, err := s.repo.SelectByMobile(ctx, info.ConsumerMobile)
+	exist, err := s.repo.SelectByName(ctx, info.ConsumerMobile)
 	if err != nil && errors.Is(err, errs.NotFoundData) == false {
 		return err
 	}
@@ -172,7 +172,7 @@ func (s *service) unMatchDataDistributeCustomer(ctx context.Context) {
 	req := &report.SelectListRequest{
 		IsMatch: report.UnMatch,
 		Belong: report.BelongMarket,
-		CreateEndTime: common.PTime(time.Now().Add(report.UnMatchDataDistributeCustomerDate)),
+		CreateEndTime: common.PTime(time.Now().Add(-report.UnMatchDataDistributeCustomerDate)),
 	}
 
 	list, _, err := s.repo.SelectList(ctx, req)
@@ -191,7 +191,7 @@ func (s *service) matchedDataDistributeCustomer(ctx context.Context) {
 	req := &report.SelectListRequest{
 		IsMatch: report.Match,
 		Belong: report.BelongMarket,
-		CreateEndTime: common.PTime(time.Now().Add(report.MatchedDataDistributeCustomerDate)),
+		ArriveEndTime: common.PTime(time.Now().Add(-report.MatchedDataDistributeCustomerDate)),
 	}
 
 	list, _, err := s.repo.SelectList(ctx, req)

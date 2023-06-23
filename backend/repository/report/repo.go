@@ -15,6 +15,7 @@ type Repository interface {
 	SelectByIds(ctx context.Context, ids []int64) ([]*reportService.Report, error)
 	SelectList(ctx context.Context, req *reportService.SelectListRequest) ([]*reportService.Report, int64, error)
 	SelectByMobile(ctx context.Context, mobile string) (*reportService.Report, error)
+	SelectByName(ctx context.Context, name string) (*reportService.Report, error)
 	Delete(ctx context.Context, ids ...int64) error
 	SelectUnMatchList(ctx context.Context) ([]*reportService.Report, error)
 	Update(ctx context.Context, info *reportService.Report) error
@@ -128,6 +129,20 @@ func (repo *repo) SelectUnMatchList(ctx context.Context) ([]*reportService.Repor
 func (repo *repo) SelectByMobile(ctx context.Context, mobile string) (*reportService.Report, error) {
 	var info reportService.Report
 	err := repo.GetClient(ctx).Where("consumer_mobile = ?", mobile).First(&info).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errs.NotFoundData
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
+func (repo *repo) SelectByName(ctx context.Context, name string) (*reportService.Report, error) {
+	var info reportService.Report
+	err := repo.GetClient(ctx).Where("consumer_name = ?", name).First(&info).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errs.NotFoundData
 	}

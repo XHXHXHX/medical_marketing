@@ -48,6 +48,10 @@ github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504102658-5a06c5ea80ac h1
 github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504102658-5a06c5ea80ac/go.mod h1:hk7Wp5y7pq4EOi67AQna7TiBZCEtSp9Y/LpvMoSg0v0=
 github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504110734-2658aa77f120 h1:WVHd545rSJTttkWvL/vp5ooXrukCzYSGvxrBo1bwysI=
 github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230504110734-2658aa77f120/go.mod h1:hk7Wp5y7pq4EOi67AQna7TiBZCEtSp9Y/LpvMoSg0v0=
+github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230610051902-1a4f8beae4a2 h1:c3nmNnN/dtqsz2QAi5e/vEJlmFZYPSnC2UqN9RjH3xA=
+github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230610051902-1a4f8beae4a2/go.mod h1:hk7Wp5y7pq4EOi67AQna7TiBZCEtSp9Y/LpvMoSg0v0=
+github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230610052255-d0e58895415f h1:tQLP5IGKOlqcQcdaNIYlXPvNsBii8pQIWxrxyfXO/xQ=
+github.com/XHXHXHX/medical_marketing_proto v0.0.0-20230610052255-d0e58895415f/go.mod h1:hk7Wp5y7pq4EOi67AQna7TiBZCEtSp9Y/LpvMoSg0v0=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash/v2 v2.1.2 h1:YRXhKfTDauu4ajMg1TPgFO5jnlC2HCbmLXMcTG5cbYE=
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=

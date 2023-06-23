@@ -27,12 +27,21 @@ func (s *Server) ReportCreate(ctx context.Context, req *v1api.ReportCreateReques
 		return nil, errs.ExpectBeforeNow
 	}
 
+	var b report.Belong = report.BelongMarket
+
+	role := user.Role(common.GetRole(ctx))
+	if role.IsCustom() {
+		b = report.BelongCustomer
+	}
+
 	err := s.reportService.Add(ctx, &report.Report{
 		ReportUserID:     common.GetUserID(ctx),
 		ConsumerMobile:   req.GetConsumerMobile(),
 		ConsumerName:     req.GetConsumerName(),
 		ExpectArriveTime: common.PTimeUnix(req.GetExpectArriveTime()),
 		CreateTime:       common.PNow(),
+		Tag: req.GetTag(),
+		Belong: b,
 	})
 	if err != nil {
 		return nil, err
@@ -176,6 +185,23 @@ func (s *Server) ReportList(ctx context.Context, req *v1api.ReportListRequest) (
 	}
 
 	return res, nil
+}
+
+func (s *Server) ReportChangeActualArrivedTime(ctx context.Context, req *v1api.ReportChangeActualArrivedTimeRequest) (*commonpb.Empty, error) {
+	if req.GetId() == 0 {
+		return nil, errs.InvalidParams.Wrap("id")
+	}
+
+	t := time.Unix(req.GetTime(), 0)
+
+	info, err := s.reportService.GetOne(ctx, req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	info.ActualArrivedTime = &t
+
+	return &commonpb.Empty{}, s.reportService.Update(ctx, info)
 }
 
 func (s *Server) ReportChangeMatch(ctx context.Context, req *v1api.ReportChangeMatchRequest) (*commonpb.Empty, error) {
